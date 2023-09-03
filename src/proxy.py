@@ -9,7 +9,7 @@ from base64 import b64encode
 
 class NasaAPI:
     @dataclass
-    class APODResponse:
+    class Content:
         date: date
         title: str
         explanation: str
@@ -17,19 +17,18 @@ class NasaAPI:
         url: str
         media_type: str
         service_version: str
-
-    class Content(BaseModel):
-        b64_img: bytes
-        url: str
+        base64_img: bytes | None = None
 
     apod_url: str = "https://api.nasa.gov/planetary/apod"
     apod_key: str
 
     def __init__(self, key):
+        if len(key) == 0:
+            print("API KEY IS MISSING")
         self.apod_key = key
 
-    def build_apod_response(self, response: dict) -> APODResponse:
-        return self.APODResponse(
+    def build_content(self, response: dict) -> Content:
+        return self.Content(
             response["date"],
             response["title"],
             response["explanation"],
@@ -39,16 +38,16 @@ class NasaAPI:
             response["service_version"],
         )
 
-    def get_picture_of_the_day(self, d: date) -> bytes:
+    def get_picture_of_the_day(self, d: date) -> Content:
         params = {"api_key": self.apod_key, "date": d}
         response = get(
             self.apod_url,
             params=params,
         )
         if response.status_code != 200:
+            print(response.json())
             raise HTTPException(404, "Cannot download image from NASA server")
-        apod_r = self.build_apod_response(response.json())
-        img_content = get(apod_r.hdurl).content
-        return self.Content(
-            b64_img=b64encode(img_content).decode("utf-8"), url=apod_r.hdurl
-        )
+        content = self.build_content(response.json())
+        img_content = get(content.hdurl).content
+        content.base64_img = b64encode(img_content).decode("utf-8")
+        return content
