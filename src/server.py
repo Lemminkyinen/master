@@ -7,7 +7,7 @@ import models as m
 from proxy import NasaAPI
 
 app = FastAPI()
-nasa_api = NasaAPI("Ggm4PqZXdMu4yP3cka92dZ1loooivVG8DzeeZE9u")
+nasa_api = NasaAPI("")
 
 
 @app.get("/picture-of-the-day")
