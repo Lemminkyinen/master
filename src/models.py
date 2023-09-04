@@ -6,8 +6,9 @@ from pydantic import BaseModel
 
 
 class Response(BaseModel):
-    b64_img: bytes
-    url: str
+    msg: str
+    b64_img: list[bytes]
+    url: list[str]
 
 
 class Rover(str, Enum):
