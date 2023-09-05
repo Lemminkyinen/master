@@ -7,7 +7,6 @@ from pydantic import BaseModel
 
 class Response(BaseModel):
     msg: str
-    b64_img: list[bytes]
     url: list[str]
 
 

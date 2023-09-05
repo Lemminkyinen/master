@@ -1,6 +1,7 @@
 import asyncio
 import datetime as dt
-from base64 import b64encode
+
+# from base64 import b64encode
 from dataclasses import dataclass
 from itertools import chain
 
@@ -43,7 +44,7 @@ class NasaAPI:
             response["service_version"],
         )
 
-    async def get_picture_of_the_day(self, date: dt.date) -> Content:
+    async def get_pod_url(self, date: dt.date) -> str:
         params = {"api_key": self.api_key, "date": date}
         response = get(
             self.apod_url,
@@ -53,9 +54,9 @@ class NasaAPI:
             print(response.json())
             raise HTTPException(response.status_code, response.json().get("msg"))
         content = self.build_content(response.json())
-        img_content = get(content.hdurl).content
-        content.base64_img = b64encode(img_content).decode("utf-8")
-        return content
+        # img_content = get(content.hdurl).content
+        # content.base64_img = b64encode(img_content).decode("utf-8")
+        return content.hdurl
 
     def get_mars_rover_info(self, rover: m.Rover) -> m.RoverInfo:
         params = {"api_key": self.api_key}
@@ -69,10 +70,7 @@ class NasaAPI:
         max_date = dt.date.fromisoformat(data["max_date"])
         return m.RoverInfo(rover.name, cameras, min_date, max_date)
 
-    async def _get_pictures(
-        self, rover: m.RoverInfo, params: dict, camera: str
-    ) -> list:
-        params["camera"] = camera
+    async def _get_pictures(self, rover: m.RoverInfo, params: dict) -> list:
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.get(
@@ -89,19 +87,19 @@ class NasaAPI:
                 print(f"An error occurred: {e}")
                 return []
 
-    async def get_mars_pictures(self, rover: m.RoverInfo, date: dt.date) -> Content:
-        params = {
-            "api_key": self.api_key,
-            "earth_date": date,
-            "camera": "",
-        }
+    async def get_mars_picture_urls(
+        self, rover: m.RoverInfo, date: dt.date
+    ) -> list[str]:
         futures = []
         image_urls = []
-
         for camera in rover.cameras:
-            future = asyncio.ensure_future(self._get_pictures(rover, params, camera))
+            params = {
+                "api_key": self.api_key,
+                "earth_date": date,
+                "camera": camera,
+            }
+            future = asyncio.ensure_future(self._get_pictures(rover, params))
             futures.append(future)
-
         results = await asyncio.gather(*futures)
         image_urls.extend(results)
         return list(chain.from_iterable(image_urls))
