@@ -1,5 +1,7 @@
 import asyncio
 import datetime as dt
+import math
+import random
 
 # from base64 import b64encode
 from dataclasses import dataclass
@@ -26,6 +28,7 @@ class NasaAPI:
 
     apod_url: str = "https://api.nasa.gov/planetary/apod"
     mars_url: str = "https://api.nasa.gov/mars-photos/api/v1/rovers"
+    search_url: str = "https://images-api.nasa.gov/search"
     api_key: str
 
     def __init__(self, key):
@@ -46,14 +49,16 @@ class NasaAPI:
 
     async def get_pod_url(self, date: dt.date) -> str:
         params = {"api_key": self.api_key, "date": date}
-        response = get(
-            self.apod_url,
-            params=params,
-        )
-        if response.status_code != 200:
-            print(response.json())
-            raise HTTPException(response.status_code, response.json().get("msg"))
-        content = self.build_content(response.json())
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                self.apod_url,
+                params=params,
+            )
+
+            if response.status_code != 200:
+                print(response.json())
+                raise HTTPException(response.status_code, response.json().get("msg"))
+            content = self.build_content(response.json())
         # img_content = get(content.hdurl).content
         # content.base64_img = b64encode(img_content).decode("utf-8")
         return content.hdurl
@@ -103,3 +108,41 @@ class NasaAPI:
         results = await asyncio.gather(*futures)
         image_urls.extend(results)
         return list(chain.from_iterable(image_urls))
+
+    async def get_random_image_url(self) -> str:
+        year = str(random.choice(range(1960, 2023)))
+        item_index = random.choice(range(0, 10))
+        page_size = 10
+
+        params = {
+            # "api_key": self.api_key,
+            "media_type": "image",
+            "page_size": page_size,
+            "year_start": year,
+            "year_end": year,
+        }
+        async with httpx.AsyncClient() as client:
+            response = await client.get(self.search_url, params=params)
+            if response.status_code != 200:
+                error_data = response.json()
+                raise HTTPException(response.status_code, error_data.get("msg"))
+            data = response.json()["collection"]
+            total_hits = data["metadata"]["total_hits"]
+            pages = math.ceil(total_hits / page_size)
+            page = random.choice(range(1, pages))
+            params["page"] = page
+
+            response = await client.get(self.search_url, params=params)
+            if response.status_code != 200:
+                error_data = response.json()
+                raise HTTPException(response.status_code, error_data.get("msg"))
+            item = response.json()["collection"]["items"][item_index]
+            response = await client.get(item["href"])
+            if response.status_code != 200:
+                error_data = response.json()
+                raise HTTPException(response.status_code, error_data.get("msg"))
+            hrefs = response.json()
+            print(hrefs)
+            url = next(filter(lambda url: url[-3:] == "jpg", hrefs))
+
+        return url

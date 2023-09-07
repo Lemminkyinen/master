@@ -33,11 +33,11 @@ async def mars_rover(rover: m.Rover, date: dt.date | None = None) -> m.Response:
             f"For {rover_info.name} rover use date between "
             f"{rover_info.min_date} - {rover_info.max_date}",
         )
-    future = nasa_api.get_mars_picture_urls(rover_info, date)
-    urls = await future
+    urls = await nasa_api.get_mars_picture_urls(rover_info, date)
     return m.Response(msg="ok", url=urls)
 
 
 @app.get("/random")
 async def random_image() -> m.Response:
-    pass
+    url = await nasa_api.get_random_image_url()
+    return m.Response(msg="ok", url=[url])
